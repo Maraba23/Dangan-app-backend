@@ -31,17 +31,15 @@ class Case(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
-    date = models.DateField()
-    date_end = models.DateField()
 
     def __str__(self):
         return self.title
     
 class TruthBullet(models.Model):
     case = models.ForeignKey(Case, on_delete=models.CASCADE)
-    user = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    code = models.CharField(max_length=200)
     content = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    found_by = models.ManyToManyField(Profile, blank=True)
 
     def __str__(self):
         return self.content

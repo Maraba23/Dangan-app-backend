@@ -114,4 +114,282 @@ def token_checker(request):
     json_return['role'] = profile.role
     return Response({'status': 'success', 'message': 'Token is valid', 'data': json_return})
     
+
+@api_view(['GET'])
+def list_all_cases(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    
+    token = request.query_params.get('token')
+    if not token:
+        return Response({'status': 'error', 'message': 'Please enter all fields'})
+    autentication_token = AuthToken.objects.filter(token=token).first()
+    if autentication_token is None:
+        return Response({'status': 'error', 'message': 'Invalid token'})
+    
+    profile = autentication_token.user
+    cases = Case.objects.all()
+    json_return = []
+    for case in cases:
+        json_return.append({
+            'id': case.id,
+            'title': case.title,
+            'description': case.description,
+            'created_at': case.created_at,
+        })
+    return Response({'status': 'success', 'message': 'Cases listed successfully', 'data': json_return})
+
+
+@api_view(['GET'])
+def list_all_truth_bullets(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    
+    token = request.query_params.get('token')
+    if not token:
+        return Response({'status': 'error', 'message': 'Please enter all fields'})
+    autentication_token = AuthToken.objects.filter(token=token).first()
+    if autentication_token is None:
+        return Response({'status': 'error', 'message': 'Invalid token'})
+    
+    profile = autentication_token.user
+    truth_bullets = TruthBullet.objects.all()
+    json_return = []
+    for truth_bullet in truth_bullets:
+        json_return.append({
+            'id': truth_bullet.id,
+            'case_id': truth_bullet.case.id,
+            'code': truth_bullet.code,
+            'content': truth_bullet.content,
+        })
+    return Response({'status': 'success', 'message': 'Truth bullets listed successfully', 'data': json_return})
+
+
+@api_view(['GET'])
+def list_all_truth_bullets_by_case(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    
+    token = request.query_params.get('token')
+    case_id = request.query_params.get('case_id')
+    if not token or not case_id:
+        return Response({'status': 'error', 'message': 'Please enter all fields'})
+    autentication_token = AuthToken.objects.filter(token=token).first()
+    if autentication_token is None:
+        return Response({'status': 'error', 'message': 'Invalid token'})
+    
+    profile = autentication_token.user
+    case = get_object_or_404(Case, id=case_id)
+    truth_bullets = TruthBullet.objects.filter(case=case)
+    json_return = []
+    for truth_bullet in truth_bullets:
+        json_return.append({
+            'id': truth_bullet.id,
+            'case_id': truth_bullet.case.id,
+            'code': truth_bullet.code,
+            'content': truth_bullet.content,
+        })
+    return Response({'status': 'success', 'message': 'Truth bullets listed successfully', 'data': json_return})
+
+
+@api_view(['GET'])
+def get_truth_bullets_founded_by_user(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    
+    token = request.query_params.get('token')
+    if not token:
+        return Response({'status': 'error', 'message': 'Please enter all fields'})
+    autentication_token = AuthToken.objects.filter(token=token).first()
+    if autentication_token is None:
+        return Response({'status': 'error', 'message': 'Invalid token'})
+    
+    profile = autentication_token.user
+    truth_bullets = TruthBullet.objects.filter(found_by=profile)
+    json_return = []
+    for truth_bullet in truth_bullets:
+        json_return.append({
+            'id': truth_bullet.id,
+            'case_id': truth_bullet.case.id,
+            'code': truth_bullet.code,
+            'content': truth_bullet.content,
+        })
+    return Response({'status': 'success', 'message': 'Truth bullets listed successfully', 'data': json_return})
+
+@api_view(['GET'])
+def get_case(request, case_id):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    
+    token = request.query_params.get('token')
+    if not token:
+        return Response({'status': 'error', 'message': 'Please enter all fields'})
+    autentication_token = AuthToken.objects.filter(token=token).first()
+    if autentication_token is None:
+        return Response({'status': 'error', 'message': 'Invalid token'})
+    
+    profile = autentication_token.user
+    case = get_object_or_404(Case, id=case_id)
+    json_return = {
+        'id': case.id,
+        'title': case.title,
+        'description': case.description,
+        'created_at': case.created_at,
+    }
+    return Response({'status': 'success', 'message': 'Case listed successfully', 'data': json_return})
+
+@api_view(['GET'])
+def get_truth_bullet(request, bullet_id):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    
+    token = request.query_params.get('token')
+    if not token:
+        return Response({'status': 'error', 'message': 'Please enter all fields'})
+    autentication_token = AuthToken.objects.filter(token=token).first()
+    if autentication_token is None:
+        return Response({'status': 'error', 'message': 'Invalid token'})
+    
+    profile = autentication_token.user
+    truth_bullet = get_object_or_404(TruthBullet, id=bullet_id)
+    json_return = {
+        'id': truth_bullet.id,
+        'case_id': truth_bullet.case.id,
+        'code': truth_bullet.code,
+        'content': truth_bullet.content,
+    }
+    return Response({'status': 'success', 'message': 'Truth bullet listed successfully', 'data': json_return})
+
+
+# Admin routes
+@api_view(['POST'])
+def create_case(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    if request.method == 'POST':
+        token = request.data.get('token')
+        title = request.data.get('title')
+        description = request.data.get('description')
+        if not token or not title or not description or not date or not date_end:
+            return Response({'status': 'error', 'message': 'Please enter all fields'})
+        autentication_token = AuthToken.objects.filter(token=token).first()
+        if autentication_token is None:
+            return Response({'status': 'error', 'message': 'Invalid token'})
+        profile = autentication_token.user
+        case = Case.objects.create(
+            user=profile, 
+            title=title, 
+            description=description, 
+        )
+        return Response({'status': 'success', 'message': 'Case created successfully'})
+    
+    return Response({'status': 'error', 'message': 'Invalid request'})
+
+@api_view(['POST'])
+def create_truth_bullet(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    if request.method == 'POST':
+        token = request.data.get('token')
+        case_id = request.data.get('case_id')
+        code = request.data.get('code') if request.data.get('code') else ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+        content = request.data.get('content')
+        if not token or not case_id or not code or not content:
+            return Response({'status': 'error', 'message': 'Please enter all fields'})
+        autentication_token = AuthToken.objects.filter(token=token).first()
+        if autentication_token is None:
+            return Response({'status': 'error', 'message': 'Invalid token'})
+        profile = autentication_token.user
+        case = Case.objects.get(id=case_id)
+        truth_bullet = TruthBullet.objects.create(
+            case=case, 
+            code=code, 
+            content=content
+        )
+        return Response({'status': 'success', 'message': 'Truth bullet created successfully'})
+    
+    return Response({'status': 'error', 'message': 'Invalid request'})
+
+@api_view(['POST'])
+def delete_case(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    if request.method == 'POST':
+        token = request.data.get('token')
+        case_id = request.data.get('case_id')
+        if not token or not case_id:
+            return Response({'status': 'error', 'message': 'Please enter all fields'})
+        autentication_token = AuthToken.objects.filter(token=token).first()
+        if autentication_token is None:
+            return Response({'status': 'error', 'message': 'Invalid token'})
+        profile = autentication_token.user
+        case = Case.objects.get(id=case_id)
+        case.delete()
+        return Response({'status': 'success', 'message': 'Case deleted successfully'})
+    
+    return Response({'status': 'error', 'message': 'Invalid request'})
+
+@api_view(['POST'])
+def delete_truth_bullet(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    if request.method == 'POST':
+        token = request.data.get('token')
+        truth_bullet_id = request.data.get('truth_bullet_id')
+        if not token or not truth_bullet_id:
+            return Response({'status': 'error', 'message': 'Please enter all fields'})
+        autentication_token = AuthToken.objects.filter(token=token).first()
+        if autentication_token is None:
+            return Response({'status': 'error', 'message': 'Invalid token'})
+        profile = autentication_token.user
+        truth_bullet = TruthBullet.objects.get(id=truth_bullet_id)
+        truth_bullet.delete()
+        return Response({'status': 'success', 'message': 'Truth bullet deleted successfully'})
+    
+    return Response({'status': 'error', 'message': 'Invalid request'})
+
+@api_view(['POST'])
+def edit_case(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    if request.method == 'POST':
+        token = request.data.get('token')
+        case_id = request.data.get('case_id')
+        title = request.data.get('title')
+        description = request.data.get('description')
+        if not token or not case_id or not title or not description or not date or not date_end:
+            return Response({'status': 'error', 'message': 'Please enter all fields'})
+        autentication_token = AuthToken.objects.filter(token=token).first()
+        if autentication_token is None:
+            return Response({'status': 'error', 'message': 'Invalid token'})
+        profile = autentication_token.user
+        case = Case.objects.get(id=case_id)
+        case.title = title
+        case.description = description
+        case.save()
+        return Response({'status': 'success', 'message': 'Case edited successfully'})
+    
+    return Response({'status': 'error', 'message': 'Invalid request'})
+
+@api_view(['POST'])
+def edit_truth_bullet(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    if request.method == 'POST':
+        token = request.data.get('token')
+        truth_bullet_id = request.data.get('truth_bullet_id')
+        code = request.data.get('code')
+        content = request.data.get('content')
+        if not token or not truth_bullet_id or not code or not content:
+            return Response({'status': 'error', 'message': 'Please enter all fields'})
+        autentication_token = AuthToken.objects.filter(token=token).first()
+        if autentication_token is None:
+            return Response({'status': 'error', 'message': 'Invalid token'})
+        profile = autentication_token.user
+        truth_bullet = TruthBullet.objects.get(id=truth_bullet_id)
+        truth_bullet.code = code
+        truth_bullet.content = content
+        truth_bullet.save()
+        return Response({'status': 'success', 'message': 'Truth bullet edited successfully'})
+    
     return Response({'status': 'error', 'message': 'Invalid request'})
