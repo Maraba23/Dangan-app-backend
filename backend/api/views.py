@@ -166,12 +166,11 @@ def list_all_truth_bullets(request):
 
 
 @api_view(['GET'])
-def list_all_truth_bullets_by_case(request):
+def list_all_truth_bullets_by_case(request, case_id):
     if not check_api_token(request):
         return Response({'status': 'error', 'message': 'Invalid API token'})
     
     token = request.query_params.get('token')
-    case_id = request.query_params.get('case_id')
     if not token or not case_id:
         return Response({'status': 'error', 'message': 'Please enter all fields'})
     autentication_token = AuthToken.objects.filter(token=token).first()
@@ -186,6 +185,7 @@ def list_all_truth_bullets_by_case(request):
         json_return.append({
             'id': truth_bullet.id,
             'case_id': truth_bullet.case.id,
+            'name': truth_bullet.name, # 'Truth Bullet
             'code': truth_bullet.code,
             'content': truth_bullet.content,
         })
@@ -193,7 +193,7 @@ def list_all_truth_bullets_by_case(request):
 
 
 @api_view(['GET'])
-def get_truth_bullets_founded_by_user(request):
+def get_truth_bullets_founded_by_user(request, case_id):
     if not check_api_token(request):
         return Response({'status': 'error', 'message': 'Invalid API token'})
     
@@ -205,16 +205,18 @@ def get_truth_bullets_founded_by_user(request):
         return Response({'status': 'error', 'message': 'Invalid token'})
     
     profile = autentication_token.user
-    truth_bullets = TruthBullet.objects.filter(found_by=profile)
+    case = get_object_or_404(Case, id=case_id)
+    truth_bullets = TruthBullet.objects.filter(case=case, found_by=profile)
     json_return = []
     for truth_bullet in truth_bullets:
         json_return.append({
             'id': truth_bullet.id,
-            'case_id': truth_bullet.case.id,
+            'name': truth_bullet.name,
             'code': truth_bullet.code,
             'content': truth_bullet.content,
         })
     return Response({'status': 'success', 'message': 'Truth bullets listed successfully', 'data': json_return})
+
 
 @api_view(['GET'])
 def get_case(request, case_id):
@@ -260,6 +262,29 @@ def get_truth_bullet(request, bullet_id):
     }
     return Response({'status': 'success', 'message': 'Truth bullet listed successfully', 'data': json_return})
 
+@api_view(['POST'])
+def add_truth_bullet_to_profile(request):
+    if not check_api_token(request):
+        return Response({'status': 'error', 'message': 'Invalid API token'})
+    if request.method == 'POST':
+        token = request.data.get('token')
+        bullet_code = request.data.get('bullet_code')
+        case_id = request.data.get('case_id')
+        if not token or not bullet_code or not case_id:
+            return Response({'status': 'error', 'message': 'Please enter all fields'})
+        if not TruthBullet.objects.filter(code=bullet_code, case_id=case_id).exists():
+            return Response({'status': 'error', 'message': 'Invalid truth bullet code or case'})
+        autentication_token = AuthToken.objects.filter(token=token).first()
+        if autentication_token is None:
+            return Response({'status': 'error', 'message': 'Invalid token'})
+        profile = autentication_token.user
+        if TruthBullet.objects.filter(code=bullet_code, case_id=case_id, found_by=profile).exists():
+            return Response({'status': 'error', 'message': 'Truth bullet already added to profile'})
+        truth_bullet = TruthBullet.objects.get(code=bullet_code, case_id=case_id)
+        truth_bullet.found_by.add(profile)
+        truth_bullet.save()
+        return Response({'status': 'success', 'message': 'Truth bullet added to profile successfully'})
+    
 
 # Admin routes
 @api_view(['POST'])
@@ -270,7 +295,7 @@ def create_case(request):
         token = request.data.get('token')
         title = request.data.get('title')
         description = request.data.get('description')
-        if not token or not title or not description or not date or not date_end:
+        if not token or not title or not description:
             return Response({'status': 'error', 'message': 'Please enter all fields'})
         autentication_token = AuthToken.objects.filter(token=token).first()
         if autentication_token is None:
@@ -292,7 +317,8 @@ def create_truth_bullet(request):
     if request.method == 'POST':
         token = request.data.get('token')
         case_id = request.data.get('case_id')
-        code = request.data.get('code') if request.data.get('code') else ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+        name = request.data.get('name') if request.data.get('name') else 'Truth Bullet'
+        code = request.data.get('code') if request.data.get('code') else ''.join(random.choices(string.digits, k=8))
         content = request.data.get('content')
         if not token or not case_id or not code or not content:
             return Response({'status': 'error', 'message': 'Please enter all fields'})
@@ -302,8 +328,9 @@ def create_truth_bullet(request):
         profile = autentication_token.user
         case = Case.objects.get(id=case_id)
         truth_bullet = TruthBullet.objects.create(
-            case=case, 
-            code=code, 
+            case=case,
+            name=name, 
+            code=code,
             content=content
         )
         return Response({'status': 'success', 'message': 'Truth bullet created successfully'})
@@ -311,13 +338,12 @@ def create_truth_bullet(request):
     return Response({'status': 'error', 'message': 'Invalid request'})
 
 @api_view(['POST'])
-def delete_case(request):
+def delete_case(request, case_id):
     if not check_api_token(request):
         return Response({'status': 'error', 'message': 'Invalid API token'})
     if request.method == 'POST':
         token = request.data.get('token')
-        case_id = request.data.get('case_id')
-        if not token or not case_id:
+        if not token:
             return Response({'status': 'error', 'message': 'Please enter all fields'})
         autentication_token = AuthToken.objects.filter(token=token).first()
         if autentication_token is None:
@@ -330,34 +356,32 @@ def delete_case(request):
     return Response({'status': 'error', 'message': 'Invalid request'})
 
 @api_view(['POST'])
-def delete_truth_bullet(request):
+def delete_truth_bullet(request, bullet_id):
     if not check_api_token(request):
         return Response({'status': 'error', 'message': 'Invalid API token'})
     if request.method == 'POST':
         token = request.data.get('token')
-        truth_bullet_id = request.data.get('truth_bullet_id')
-        if not token or not truth_bullet_id:
+        if not token:
             return Response({'status': 'error', 'message': 'Please enter all fields'})
         autentication_token = AuthToken.objects.filter(token=token).first()
         if autentication_token is None:
             return Response({'status': 'error', 'message': 'Invalid token'})
         profile = autentication_token.user
-        truth_bullet = TruthBullet.objects.get(id=truth_bullet_id)
+        truth_bullet = TruthBullet.objects.get(id=bullet_id)
         truth_bullet.delete()
         return Response({'status': 'success', 'message': 'Truth bullet deleted successfully'})
     
     return Response({'status': 'error', 'message': 'Invalid request'})
 
 @api_view(['POST'])
-def edit_case(request):
+def edit_case(request, case_id):
     if not check_api_token(request):
         return Response({'status': 'error', 'message': 'Invalid API token'})
     if request.method == 'POST':
         token = request.data.get('token')
-        case_id = request.data.get('case_id')
         title = request.data.get('title')
         description = request.data.get('description')
-        if not token or not case_id or not title or not description or not date or not date_end:
+        if not token or not title or not description:
             return Response({'status': 'error', 'message': 'Please enter all fields'})
         autentication_token = AuthToken.objects.filter(token=token).first()
         if autentication_token is None:
@@ -372,21 +396,20 @@ def edit_case(request):
     return Response({'status': 'error', 'message': 'Invalid request'})
 
 @api_view(['POST'])
-def edit_truth_bullet(request):
+def edit_truth_bullet(request, bullet_id):
     if not check_api_token(request):
         return Response({'status': 'error', 'message': 'Invalid API token'})
     if request.method == 'POST':
         token = request.data.get('token')
-        truth_bullet_id = request.data.get('truth_bullet_id')
         code = request.data.get('code')
         content = request.data.get('content')
-        if not token or not truth_bullet_id or not code or not content:
+        if not token or not code or not content:
             return Response({'status': 'error', 'message': 'Please enter all fields'})
         autentication_token = AuthToken.objects.filter(token=token).first()
         if autentication_token is None:
             return Response({'status': 'error', 'message': 'Invalid token'})
         profile = autentication_token.user
-        truth_bullet = TruthBullet.objects.get(id=truth_bullet_id)
+        truth_bullet = TruthBullet.objects.get(id=bullet_id)
         truth_bullet.code = code
         truth_bullet.content = content
         truth_bullet.save()

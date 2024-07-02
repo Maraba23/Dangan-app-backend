@@ -37,9 +37,10 @@ class Case(models.Model):
     
 class TruthBullet(models.Model):
     case = models.ForeignKey(Case, on_delete=models.CASCADE)
+    name = models.CharField(max_length=200, default='Truth Bullet')
     code = models.CharField(max_length=200)
     content = models.TextField()
     found_by = models.ManyToManyField(Profile, blank=True)
 
     def __str__(self):
-        return self.content
+        return self.name
