@@ -12,7 +12,6 @@ from django.contrib.auth import login
 from rest_framework.decorators import api_view
 from usuarios.models import *
 from django.shortcuts import render, redirect
-import sweetify
 import datetime
 import requests
 import logging
@@ -25,7 +24,6 @@ import random
 import string
 from django.views.decorators.csrf import csrf_exempt
 import math
-from dotenv import load_dotenv
 import json
 import pandas as pd
 from django.shortcuts import get_object_or_404
@@ -36,11 +34,11 @@ from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+API_TOKEN = "Bearer DQOJMMAB8XR31CZUTANCXD5U2MNZMZETNWUABCJM80AABH4AKLNNVNZM130UCI9X"
 
 def check_api_token(request):
     api_token = request.headers.get('Authorization')
-    if api_token != os.getenv('API_TOKEN'):
+    if api_token != API_TOKEN:
         return False
     return True
 
